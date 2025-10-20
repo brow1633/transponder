@@ -68,8 +68,9 @@ void transponder2ros::publish_Transponder(TransponderUdpPacket transponder)
     msg.lat = transponder.data.lat/1e7;
     msg.lon = transponder.data.lon/1e7;
     msg.alt = transponder.data.alt/1e3;
-    msg.heading = transponder.data.heading/1e2;
-    msg.vel = transponder.data.vel/1e2;
+    msg.v_east = transponder.data.v_east/1e2;
+    msg.v_north = transponder.data.v_north/1e2;
+    msg.v_up = transponder.data.v_up/1e2;
     msg.state = transponder.data.state;
 
     pub_Transponder_->publish(msg);
@@ -102,16 +103,17 @@ void transponder2ros::callback_Transponder(const transponder_msgs::msg::Transpon
     // Need to send Transponder data from here
     StructIacTransponder transponder;
 
-    transponder.version = TRANSPONDER_UDP_STRUCT_VERISON;   // Struct version
-    transponder.sec = msg->header.stamp.sec;                // UTC time [ s ]
-    transponder.nanosec = msg->header.stamp.nanosec;        // UTC time nanoseconds [ ns ]
-    transponder.car_id = msg->car_id;                       // Car ID [ - ]
-    transponder.lat = msg->lat*1e7;                         // Vehicle longitude [ dd.dd x 10^7 ]
-    transponder.lon = msg->lon*1e7;                         // Vehicle latitude [ dd.dd x 10^7 ]
-    transponder.alt = msg->alt*1e3;                         // Vehicle altitude [ mm ]
-    transponder.heading = msg->heading*1e2;                 // Vehicle GPS heading [ cdeg ]
-    transponder.vel = (msg->vel > 0) ? msg->vel*1e2 : 0;    // Vehicle speed, force positive [ cm/s ]
-    transponder.state = msg->state;                         // Vehicle state [ - ]
+    transponder.version = TRANSPONDER_UDP_STRUCT_VERISON;               // Struct version
+    transponder.sec = msg->header.stamp.sec;                            // UTC time [ s ]
+    transponder.nanosec = msg->header.stamp.nanosec;                    // UTC time nanoseconds [ ns ]
+    transponder.car_id = msg->car_id;                                   // Car ID [ - ]
+    transponder.lat = msg->lat*1e7;                                     // Vehicle longitude [ dd.dd x 10^7 ]
+    transponder.lon = msg->lon*1e7;                                     // Vehicle latitude [ dd.dd x 10^7 ]
+    transponder.alt = msg->alt*1e3;                                     // Vehicle altitude [ mm ]
+    transponder.v_east = (msg->v_east > 0) ? msg->v_east*1e2 : 0;       // Vehicle velocity East [ cm/s ]
+    transponder.v_north = (msg->v_north > 0) ? msg->v_north*1e2 : 0;    // Vehicle velocity North [ cm/s ]
+    transponder.v_up = (msg->v_up > 0) ? msg->v_up*1e2 : 0;             // Vehicle velocity Up [ cm/s ]
+    transponder.state = msg->state;                                     // Vehicle state [ - ]
   
     // Push data
     push_udp(transponder);

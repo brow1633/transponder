@@ -8,6 +8,11 @@
 
 #include <GeographicLib/LocalCartesian.hpp>
 
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geographic_msgs/msg/geo_point.hpp"
@@ -88,11 +93,17 @@ private:
 
         // Calculate yaw
         geometry_msgs::msg::Quaternion q = odom_.pose.pose.orientation;
-        double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
-        double cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
-        double yaw = std::atan2(siny_cosp, cosy_cosp);
-        double yaw_deg = (M_PI_2-yaw)*180.0/M_PI;
-        while (yaw_deg < 0.0) yaw_deg += 360.0;
+        tf2::Quaternion q_tf;
+        tf2::fromMsg(q, q_tf);
+        tf2::Matrix3x3 R(q_tf); // rotation matrix body->ENU
+
+        tf2::Vector3 v_local(
+            odom_.twist.twist.linear.x,
+            odom_.twist.twist.linear.y,
+            odom_.twist.twist.linear.z
+        );
+
+        tf2::Vector3 v_enu = R * v_local;
 
         // Push message
         transponder_msgs::msg::Transponder msg;
@@ -104,8 +115,9 @@ private:
         msg.lat = lla.latitude;
         msg.lon = lla.longitude;
         msg.alt = lla.altitude;
-        msg.heading = yaw_deg;
-        msg.vel = odom_.twist.twist.linear.x;
+        msg.v_east = v_enu.x();
+        msg.v_east = v_enu.y();
+        msg.v_east = v_enu.z();
         msg.state = car_mode_; 
 
         pub_Transponder_->publish(msg);

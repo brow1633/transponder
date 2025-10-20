@@ -88,8 +88,8 @@ void transponder2ros::push_udp(StructIacTransponder data)
     // Debugging
     if (0)
     {
-        RCLCPP_INFO(this->get_logger(), "Sending %5.2d, %5.2d, %5.2d",
-        udp_packet.data.lat, udp_packet.data.lon, udp_packet.data.vel);
+        RCLCPP_INFO(this->get_logger(), "Sending %5.2d, %5.2d",
+        udp_packet.data.lat, udp_packet.data.lon);
     }
 
     // All done

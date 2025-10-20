@@ -20,6 +20,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(transponder_msgs REQUIRED)
 find_package(GeographicLib REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 # git hash and branch
 execute_process(
@@ -94,6 +96,8 @@ add_executable(odom2transponder_node src/odom2transponder_node.cpp)
         transponder_msgs
         geometry_msgs
         GeographicLib
+        tf2
+        tf2_geometry_msgs
     )
     install(TARGETS
     odom2transponder_node

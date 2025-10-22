@@ -71,12 +71,25 @@ public:
         */
 
         // Timers
-        timer_pushTransponder_ = this->create_wall_timer(
-            std::chrono::milliseconds(100),  // Kept at a reasonably rate to not flood the network
-            std::bind(&Odom2Transponder::callback_pushTransponder, this));
+        start_timer_aligned(100);
     }
 
 private:
+    double start_timer_aligned(int period_ms)
+    {
+        // Starts a timer aligned with the second boundary with period `period_ms`
+        // Note: period_ms should evenly fit into a second for this to work
+        double period = static_cast<double>(period_ms) / 1000.0;
+        double t_now = this->get_clock()->now().seconds();
+        double delay = period - std::fmod(t_now, period);
+
+        RCLCPP_INFO(this->get_logger(), "Delaying %.3f s to align with next period", delay);
+        std::this_thread::sleep_for(std::chrono::duration<double>(delay));
+
+        timer_pushTransponder_ = this->create_wall_timer(
+            std::chrono::milliseconds(period_ms),  
+            std::bind(&Odom2Transponder::callback_pushTransponder, this));
+    }
     void callback_pushTransponder()
     {
         // Check timestamp is reasonable
@@ -121,7 +134,6 @@ private:
         msg.state = car_mode_; 
 
         pub_Transponder_->publish(msg);
-
     }
 
     void callback_Odometry(const nav_msgs::msg::Odometry::SharedPtr msg)

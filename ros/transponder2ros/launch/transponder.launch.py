@@ -39,12 +39,13 @@ def generate_launch_description():
         output="both",
         namespace="transponder",
         parameters=[
-                {'odometry_in' : '/state/odom'},    # Odometry in topic
-                {'transponder_out' : 'out'},        # Transponder out topic
-                {'car' : 1},                        # Car ID
-                {'lat0' : 45.61898},   # Monza      # Reference lla
+                {'odometry_in' : '/state/odom'},        # Odometry in topic
+                {'transponder_out' : 'out'},            # Transponder out topic
+                {'car' : 1},                            # Car ID
+                {'lat0' : 45.61898},   # Monza          # Reference lla
                 {'lon0' : 9.2811880},
                 {'alt0' : 176.61984507},
+                # {'transform_to': 'rear_axle_middle'},  # Optional frame to transform odometry to
         ],
     )
     ld.add_action(node)

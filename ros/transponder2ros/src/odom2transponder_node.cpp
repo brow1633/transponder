@@ -5,12 +5,15 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <optional>
 
 #include <GeographicLib/LocalCartesian.hpp>
 
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Vector3.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include "rclcpp/rclcpp.hpp"
@@ -45,6 +48,13 @@ public:
 
         this->declare_parameter<int>("car", 1);  // Car number
         car_id_ = this->get_parameter("car").as_int();
+
+        frame_id_ = this->declare_parameter("transform_to", "");
+
+        if (!frame_id_.empty()) {
+            tf_buffer_.emplace(this->get_clock());
+            tf_listener_.emplace(*tf_buffer_);
+        }
 
         // Publishers
         pub_Transponder_ = this->create_publisher<transponder_msgs::msg::Transponder>(param_transponderOut, 1);
@@ -101,6 +111,12 @@ private:
             return;
         }
 
+        // transform to rear axle if required
+        if (tf_buffer_) 
+        {
+            odom_ = transform_Odometry(odom_);
+        }
+
         // Convert enu to lla
         geographic_msgs::msg::GeoPoint lla = enu_to_lla_geodetic(odom_.pose.pose.position, lla0_);
 
@@ -129,8 +145,8 @@ private:
         msg.lon = lla.longitude;
         msg.alt = lla.altitude;
         msg.v_east = v_enu.x();
-        msg.v_east = v_enu.y();
-        msg.v_east = v_enu.z();
+        msg.v_north = v_enu.y();
+        msg.v_up = v_enu.z();
         msg.state = car_mode_; 
 
         pub_Transponder_->publish(msg);
@@ -143,6 +159,51 @@ private:
 
         // Done
         return;
+    }
+
+    nav_msgs::msg::Odometry transform_Odometry(const nav_msgs::msg::Odometry& msg) {
+        // We assume that odom frame and to frame have the same orientation w.r.t robot
+        try {
+            geometry_msgs::msg::TransformStamped transform = tf_buffer_->lookupTransform(msg.child_frame_id, frame_id_, msg.header.stamp);
+
+            nav_msgs::msg::Odometry transformed = msg;
+
+            // pose
+            const auto& trans = transform.transform.translation;
+            tf2::Vector3 r_AB(trans.x, trans.y, trans.z);
+
+            const auto& pose = transformed.pose.pose;
+            tf2::Quaternion q;
+            tf2::fromMsg(pose.orientation, q);
+            tf2::Matrix3x3 R(q);
+
+            tf2::Vector3 p_A(pose.position.x, pose.position.y, pose.position.z);
+            tf2::Vector3 p_B = p_A + R * r_AB;
+
+            transformed.pose.pose.position.x = p_B.x();
+            transformed.pose.pose.position.y = p_B.y();
+            transformed.pose.pose.position.z = p_B.z();
+
+            // velocity
+            const auto& lin = transformed.twist.twist.linear;
+            const auto& ang = transformed.twist.twist.angular;
+
+            tf2::Vector3 v_A(lin.x, lin.y, lin.z);
+            tf2::Vector3 w_A(ang.x, ang.y, ang.z);
+
+            tf2::Vector3 v_B = v_A + w_A.cross(r_AB);
+
+            transformed.twist.twist.linear.x = v_B.x();
+            transformed.twist.twist.linear.y = v_B.y();
+            transformed.twist.twist.linear.z = v_B.z();
+
+            transformed.child_frame_id = frame_id_;
+
+            return transformed;
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN_STREAM(this->get_logger(), "TF Lookup failed: " << ex.what());
+            return msg;
+        }
     }
 
     /*
@@ -205,7 +266,12 @@ private:
     // rclcpp::Subscription<iac_msgs::msg::CarMode>::SharedPtr sub_CarMode_;  // Needed to fill in the 'state' field
     rclcpp::TimerBase::SharedPtr timer_pushTransponder_;
 
+    // TF, only enabled if transform requested
+    std::optional<tf2_ros::Buffer> tf_buffer_;
+    std::optional<tf2_ros::TransformListener> tf_listener_;
+
     // Variables
+    std::string frame_id_;
     uint8_t car_id_;
     nav_msgs::msg::Odometry odom_;
     geographic_msgs::msg::GeoPoint lla0_;
